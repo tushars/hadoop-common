@@ -22,7 +22,7 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 
 /**
- * This class is used for auto-failover of Namenode using Zookeeper
+ * This class is used for auto-failover of Namenode using Zookeeper 
  * 
  */
 public class FailoverManager implements Watcher {
