@@ -63,7 +63,8 @@ public class NameNodeMetrics {
 
   @Metric("Duration in SafeMode at startup") MutableGaugeInt safeModeTime;
   @Metric("Time loading FS Image at startup") MutableGaugeInt fsImageLoadTime;
-
+  @Metric("Failover time") MutableGaugeInt failoverTime;
+  
   NameNodeMetrics(String processName, String sessionId) {
     registry.tag(ProcessName, processName).tag(SessionId, sessionId);
   }
@@ -158,5 +159,9 @@ public class NameNodeMetrics {
 
   public void setSafeModeTime(long elapsed) {
     safeModeTime.set((int) elapsed);
+  }
+  
+  public void setFailoverTime(long t) {
+	    failoverTime.set((int) t);
   }
 }

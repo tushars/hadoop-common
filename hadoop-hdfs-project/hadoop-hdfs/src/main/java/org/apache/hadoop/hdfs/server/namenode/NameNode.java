@@ -49,12 +49,14 @@ import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.HAUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.protocol.ClientProtocol;
+import org.apache.hadoop.hdfs.protocol.FailoverProtocol;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.namenode.FileJournalManager.EditLogFile;
 import org.apache.hadoop.hdfs.server.namenode.JournalSet.JournalAndStream;
+import org.apache.hadoop.hdfs.server.namenode.failover.FailoverManager;
 import org.apache.hadoop.hdfs.server.namenode.ha.ActiveState;
 import org.apache.hadoop.hdfs.server.namenode.ha.BootstrapStandby;
 import org.apache.hadoop.hdfs.server.namenode.ha.HAContext;
@@ -123,7 +125,7 @@ import com.google.common.collect.Lists;
  * NameNode state, for example partial blocksMap etc.
  **********************************************************/
 @InterfaceAudience.Private
-public class NameNode {
+public class NameNode implements FailoverProtocol{
   static{
     HdfsConfiguration.init();
   }
@@ -198,6 +200,11 @@ public class NameNode {
   public static final Log stateChangeLog = LogFactory.getLog("org.apache.hadoop.hdfs.StateChange");
   public static final HAState ACTIVE_STATE = new ActiveState();
   public static final HAState STANDBY_STATE = new StandbyState();
+  
+  
+
+  protected FailoverManager failoverManager;
+  
   
   protected FSNamesystem namesystem; 
   protected final Configuration conf;
@@ -412,6 +419,11 @@ public class NameNode {
     }
 
     startCommonServices(conf);
+    
+    //Register for failover
+    String zooConnString = conf.get("dfs.zookeeper", "127.0.0.1");
+    failoverManager = new FailoverManager(this,metrics,zooConnString);
+    failoverManager.register();
   }
   
   /**
@@ -618,6 +630,7 @@ public class NameNode {
     if (namesystem != null) {
       namesystem.shutdown();
     }
+    
   }
 
   synchronized boolean isStopRequested() {
@@ -1271,6 +1284,14 @@ public class NameNode {
   }
   
   /**
+   * Does autoFailover using zookeeper
+   * @throws IOException
+   */
+  public void doFailover() throws IOException {
+	    switchToActive();
+  }
+  
+  /**
    * Class used to expose {@link NameNode} as context to {@link HAState}
    */
   protected class NameNodeHAContext implements HAContext {
@@ -1362,4 +1383,17 @@ public class NameNode {
   public boolean isStandbyState() {
     return (state.equals(STANDBY_STATE));
   }
+  
+  @Override
+  public void switchToActive() throws IOException {
+      LOG.info("==== BEGIN FAILOVER ====");
+      LOG.info("Moving backup to active state");
+      
+
+      transitionToActive(); // Start Active services
+      LOG.info("==== END FAILOVER ====");
+
+  	
+  }
+  
 }
